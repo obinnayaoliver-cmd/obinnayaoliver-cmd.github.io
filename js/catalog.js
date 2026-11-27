@@ -1,4 +1,5 @@
-import { CATEGORIES, filterProducts, mergeProducts } from "./merge.js";
+import { CATEGORIES, filterProducts, isFreeProduct, mergeProducts } from "./merge.js";
+import { GUMROAD_EMAIL_NOTE, listedPrice } from "./seo.js";
 
 const grid = document.querySelector("#catalog");
 const resultCount = document.querySelector("#result-count");
@@ -7,6 +8,9 @@ const searchForm = document.querySelector("#search-form");
 const searchInput = document.querySelector("#q");
 const emptyState = document.querySelector("#empty-state");
 const status = document.querySelector("#status");
+const freeSection = document.querySelector("#free");
+const freeNote = document.querySelector("#free-note");
+const freeList = document.querySelector("#free-list");
 
 const params = new URLSearchParams(location.search);
 let activeCategory = params.get("cat") || "";
@@ -121,6 +125,11 @@ function renderCard(product, eager) {
   placeholder.append(mark);
   media.append(placeholder);
   attachImage(media, product.imageUrls, eager);
+  const mediaLink = document.createElement("a");
+  mediaLink.className = "media-link";
+  mediaLink.href = `p/${product.slug}/`;
+  mediaLink.setAttribute("aria-label", `Details for ${product.name}`);
+  mediaLink.append(media);
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -130,7 +139,10 @@ function renderCard(product, eager) {
   category.textContent = product.categoryLabel;
 
   const title = document.createElement("h2");
-  title.textContent = product.name;
+  const titleLink = document.createElement("a");
+  titleLink.href = `p/${product.slug}/`;
+  titleLink.textContent = product.name;
+  title.append(titleLink);
 
   const description = document.createElement("p");
   description.className = "desc";
@@ -162,8 +174,52 @@ function renderCard(product, eager) {
     buys.append(link);
   }
 
-  card.append(media, body, buys);
+  card.append(mediaLink, body, buys);
   return card;
+}
+
+function renderFree(products) {
+  const free = products.filter(isFreeProduct);
+  if (!free.length) {
+    freeSection.hidden = true;
+    return;
+  }
+  const noun = free.length === 1 ? "download" : "downloads";
+  const freeOffers = free.flatMap((product) => product.offers.filter((offer) => Number(offer.price) === 0));
+  const platforms = [...new Set(freeOffers.map((offer) => offer.platform))].join(" and ");
+  const prices = [...new Set(freeOffers.map((offer) => listedPrice(offer)))].join(", ");
+  freeNote.textContent = `${free.length} free ${noun} on ${platforms} (${prices}). ${GUMROAD_EMAIL_NOTE}`;
+  freeList.replaceChildren();
+  for (const product of free) {
+    const offer = product.offers.find((item) => Number(item.price) === 0);
+    const card = document.createElement("article");
+    card.className = "free-card";
+    const heading = document.createElement("h3");
+    const details = document.createElement("a");
+    details.href = `p/${product.slug}/`;
+    details.textContent = product.name;
+    heading.append(details);
+    const copy = document.createElement("p");
+    copy.textContent = product.description;
+    const button = document.createElement("a");
+    button.className = "buy";
+    button.href = httpsUrl(offer.url);
+    button.target = "_blank";
+    button.rel = "noopener noreferrer";
+    button.setAttribute(
+      "aria-label",
+      `Get ${product.name} free on ${offer.platform}. Opens in a new tab.`,
+    );
+    const label = document.createElement("span");
+    label.textContent = `Get it free on ${offer.platform}`;
+    const price = document.createElement("span");
+    price.className = "buy-price";
+    price.textContent = listedPrice(offer);
+    button.append(label, price);
+    card.append(heading, copy, button);
+    freeList.append(card);
+  }
+  freeSection.hidden = false;
 }
 
 function render() {
@@ -197,6 +253,7 @@ async function init() {
     if (!Array.isArray(rows)) throw new Error("Catalog is not a list");
     allProducts = mergeProducts(rows).products;
     status.hidden = true;
+    renderFree(allProducts);
     renderChips(allProducts);
     render();
   } catch {

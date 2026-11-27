@@ -14,10 +14,10 @@ python3 -m http.server 8080
 
 Open `http://localhost:8080`. Fetching the catalog needs a local server; opening `index.html` as a file will not load the product list.
 
-Check the merge rules:
+Check the merge rules and the generated pages:
 
 ```bash
-node --test tests/merge.test.mjs
+node --test tests/merge.test.mjs tests/pages.test.mjs
 ```
 
 ## Add or edit a product
@@ -55,7 +55,27 @@ Use the same category id on every store for that pack. Current ids:
 
 A new id still appears as a filter. To give it a proper label, add it to `CATEGORIES` in `js/merge.js`.
 
-A price of `0` is shown as Free.
+A price of `0` is shown as Free. Those rows are the free Gumroad downloads in the “Get a free template” section. The button goes to Gumroad, which asks for an email address before sending the file.
+
+## Product pages
+
+Each merged product has a static page at `p/<slug>/index.html`. The homepage card title and image link to it. The page is plain HTML, so it can be crawled without JavaScript. It includes the product title, the description from the catalog, the listed price on each store, buy links, Open Graph tags, and schema.org `Product` offers.
+
+Regenerate the pages, `sitemap.xml`, and `robots.txt` after every edit to `data/products.json`:
+
+```bash
+node scripts/generate.mjs
+```
+
+Check that the committed pages still match the data:
+
+```bash
+node scripts/generate.mjs --check
+```
+
+Commit the generated files with the data change. GitHub Actions runs the same check and fails if the pages are stale. There is still no build step for GitHub Pages. The generator only refreshes files you commit.
+
+The sitemap is `https://obinnayaoliver-cmd.github.io/sitemap.xml`.
 
 ## Prices and links that should not be shown
 
