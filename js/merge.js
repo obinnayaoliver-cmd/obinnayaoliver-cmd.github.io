@@ -142,6 +142,7 @@ export function mergeProducts(rows) {
       category,
       categoryLabel: categoryLabel(category),
       imageUrls: imageUrlsFor(offers),
+      sourceNames: ordered.map((offer) => offer.name),
       offers: ordered.map((offer) => ({
         platform: offer.platform,
         url: offer.url,
@@ -153,7 +154,42 @@ export function mergeProducts(rows) {
   }
 
   products.sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true, sensitivity: "base" }));
+  assignSlugs(products);
   return { products, excluded };
+}
+
+export function slugify(name) {
+  const slug = String(name)
+    .toLowerCase()
+    .replaceAll("&", " and ")
+    .replaceAll("—", " ")
+    .replaceAll("–", " ")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+  return slug.slice(0, 80).replace(/-+$/g, "");
+}
+
+function assignSlugs(products) {
+  const used = new Set();
+  for (const product of products) {
+    const base = slugify(product.name) || "product";
+    let slug = base;
+    let n = 2;
+    while (used.has(slug)) {
+      const suffix = `-${n}`;
+      slug = `${base.slice(0, 80 - suffix.length).replace(/-+$/g, "")}${suffix}`;
+      n += 1;
+    }
+    used.add(slug);
+    product.slug = slug;
+  }
+}
+
+export function isFreeProduct(product) {
+  return product.offers.some((offer) => Number(offer.price) === 0);
 }
 
 export function filterProducts(products, { category = "", query = "" } = {}) {
